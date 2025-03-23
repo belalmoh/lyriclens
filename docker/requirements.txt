@@ -1,0 +1,4 @@
+Django>=5.0.0
+django-cors-headers
+python-dotenv
+openai

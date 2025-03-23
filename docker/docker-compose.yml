@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  backend:
+    build: 
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: lyriclens_backend
+    command: sh -c "python3 manage.py migrate --noinput &&  python3 manage.py runserver 0.0.0.0:8000"
+    restart: always
+    volumes:
+      - ../lyriclens-server:/app
+    env_file:
+      - ../.env
+    ports:
+      - "${DJANGO_PORT}:8000"
+volumes:
+  data:
