@@ -81,25 +81,25 @@ def get_lyrics(request):
     Returns:
         JsonResponse: Lyrics data or error message
     """
-    artist = request.GET.get('artist_name')
-    song = request.GET.get('track_name')
+    artist_name = request.GET.get('artist_name')
+    track_name = request.GET.get('track_name')
     
     # Validate required parameters
-    if not artist:
+    if not artist_name:
         return Response(
-            {"error": "artist parameter is required"}, 
+            {"error": "artist_name parameter is required"}, 
             status=status.HTTP_400_BAD_REQUEST
         )
     
-    if not song:
+    if not track_name:
         return Response(
-            {"error": "song parameter is required"}, 
+            {"error": "track_name parameter is required"}, 
             status=status.HTTP_400_BAD_REQUEST
         )
     
     try:
         # Get lyrics from the service
-        result = lyrics_ovh_service.get_lyrics(artist, song)
+        result = lyrics_ovh_service.get_lyrics(artist_name, track_name)
         
         # Check if there was an error
         if "error" in result:
