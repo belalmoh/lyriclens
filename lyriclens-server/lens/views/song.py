@@ -1,5 +1,3 @@
-from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status
@@ -77,14 +75,14 @@ def get_lyrics(request):
     API endpoint to fetch lyrics for a song using lyrics.ovh.
     
     Query Parameters:
-        artist (str): Required. The artist name
-        song (str): Required. The song title
+        artist_name (str): Required. The artist name
+        track_name (str): Required. The song title
         
     Returns:
         JsonResponse: Lyrics data or error message
     """
-    artist = request.GET.get('artist')
-    song = request.GET.get('song')
+    artist = request.GET.get('artist_name')
+    song = request.GET.get('track_name')
     
     # Validate required parameters
     if not artist:
@@ -117,7 +115,7 @@ def get_lyrics(request):
         )
     
 
-@api_view(['GET'])
+@api_view(['POST'])
 def analyze_lyrics(request):
     """
     API endpoint to analyze lyrics for a song.
@@ -132,13 +130,14 @@ def analyze_lyrics(request):
     Query Parameters:
         track_name (str): Required. The name of the track to search for
         artist_name (str): Required. The artist name
-        
+        lyrics (str): Required. The lyrics to analyze
     Returns:
         JsonResponse: Analysis results or error message
     """
-    track_name = request.GET.get('track_name')
-    artist_name = request.GET.get('artist_name')
-    
+    track_name = request.data.get('track_name')
+    artist_name = request.data.get('artist_name')
+    lyrics = request.data.get('lyrics')
+
     # Validate required parameters
     if not track_name:
         return Response(
@@ -154,7 +153,7 @@ def analyze_lyrics(request):
     
     try:
         # Use the global service instance instead of creating a new one
-        result = lyrics_analysis_service.analyze_lyrics(track_name, artist_name)
+        result = lyrics_analysis_service.analyze_lyrics(track_name, artist_name, lyrics)
         
         # Check if there was an error
         if "error" in result:
@@ -170,14 +169,7 @@ def analyze_lyrics(request):
                 "artist_name": result["artist_name"],
                 "summary": analysis_json.get("summary", "No summary available"),
                 "countries_mentioned": analysis_json.get("countries_mentioned", []),
-                "disclaimer": result["disclaimer"]
             }
-            
-            # Add a message if no countries are mentioned
-            if not response_data["countries_mentioned"]:
-                response_data["countries_message"] = "No countries mentioned in the lyrics"
-            else:
-                response_data["countries_message"] = f"Countries mentioned: {', '.join(response_data['countries_mentioned'])}"
             
             return Response(response_data)
         except json.JSONDecodeError as e:

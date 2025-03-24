@@ -11,6 +11,7 @@ The project is structured with a Django backend API that handles the song analys
 
 ## Features
 
+- User-friendly song and artist search functionality through an intuitive web interface
 - Song Summary Generation: Get AI-powered summaries of song lyrics
 - Country Detection: Identify countries mentioned in song lyrics
 - Modern Web Interface: Clean and responsive UI built with React and Tailwind CSS

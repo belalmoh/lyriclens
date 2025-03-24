@@ -135,25 +135,3 @@ class LyricsAnalysisService:
         }
         
         return response_data
-    
-    def get_lyrics_summary(self, track_name, artist_name):
-        """
-        Get a summary of lyrics for a specific track and artist.
-        
-        This is a convenient method that returns only the summary part
-        of the analysis.
-        
-        Args:
-            track_name (str): The name of the track
-            artist_name (str): The artist name
-            
-        Returns:
-            dict: Summary of the lyrics
-        """
-        analysis = self.analyze_lyrics(track_name, artist_name)
-        
-        # If there was an error, return it
-        if "error" in analysis:
-            return analysis
-            
-        return analysis 
