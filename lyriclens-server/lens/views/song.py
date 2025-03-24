@@ -6,32 +6,27 @@ from rest_framework import status
 import logging
 import json
 
-from lens.services.musixmatch_service import MusixMatchService
 from lens.services.lyrics_analysis_service import LyricsAnalysisService
-
+from lens.services.lyricsovh_service import LyricsOvhService
 # Set up logging
 logger = logging.getLogger(__name__)
 
 # Initialize services once at module level
-musixmatch_service = MusixMatchService()
 lyrics_analysis_service = LyricsAnalysisService()
+lyrics_ovh_service = LyricsOvhService()
 
 @api_view(['GET'])
-def search_songs(request):
+def get_suggestions(request):
     """
-    API endpoint to search for songs by keyword.
+    API endpoint to get song suggestions based on a search query using lyrics.ovh.
     
     Query Parameters:
-        query (str): Required. The search term to find songs
-        page (int): Optional. Page number for pagination (default: 1)
-        page_size (int): Optional. Number of results per page (default: 10)
+        query (str): Required. The search query
         
     Returns:
-        JsonResponse: List of matching songs with metadata
+        JsonResponse: Song suggestions or error message
     """
     query = request.GET.get('query')
-    page = request.GET.get('page', '1')
-    page_size = request.GET.get('page_size', '10')
     
     # Validate required parameters
     if not query:
@@ -40,73 +35,37 @@ def search_songs(request):
             status=status.HTTP_400_BAD_REQUEST
         )
     
-    # Validate and convert pagination parameters
     try:
-        page = int(page)
-        page_size = int(page_size)
-        
-        # Limit page_size to reasonable values
-        if page_size > 50:
-            page_size = 50
-        elif page_size < 1:
-            page_size = 10
-            
-        if page < 1:
-            page = 1
-            
-    except ValueError:
-        return Response(
-            {"error": "page and page_size must be valid integers"}, 
-            status=status.HTTP_400_BAD_REQUEST
-        )
-    
-    try:
-        # Use the global service instance to search for tracks
-        result = musixmatch_service.search_tracks(query, page, page_size)
+        # Get suggestions from the service
+        result = lyrics_ovh_service.get_suggestions(query)
         
         # Check if there was an error
         if "error" in result:
             return Response(result, status=status.HTTP_404_NOT_FOUND)
         
-        # Extract the track list from the response
-        try:
-            message = result.get("message", {})
-            header = message.get("header", {})
-            body = message.get("body", {})
-            track_list = body.get("track_list", [])
-            
-            # Format the response with relevant track information
-            songs = []
-            for track_item in track_list:
-                track = track_item.get("track", {})
-                songs.append({
-                    "track_id": track.get("track_id"),
-                    "track_name": track.get("track_name"),
-                    "artist_name": track.get("artist_name"),
-                    "album_name": track.get("album_name"),
+        # Format the response to simplify the data structure
+        suggestions = []
+        
+        # Extract data from the response
+        if "data" in result and isinstance(result["data"], list):
+            for item in result["data"]:
+                suggestions.append({
+                    "title": item.get("title", ""),
+                    "artist": item.get("artist", {}).get("name", ""),
+                    "album": item.get("album", {}).get("title", ""),
+                    "preview_url": item.get("preview", ""),
+                    "cover_url": item.get("album", {}).get("cover_medium", "")
                 })
-            
-            # Build the complete response with pagination info
-            response_data = {
-                "songs": songs,
-                "pagination": {
-                    "current_page": page,
-                    "page_size": page_size,
-                    "total_results": header.get("available", 0)
-                },
-                "status_code": header.get("status_code")
-            }
-            
-            return Response(response_data)
-        except (KeyError, TypeError) as e:
-            logger.error(f"Error parsing search response: {e}")
-            return Response(
-                {"error": "Could not parse search results from the API response"}, 
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
-            
+        
+        response_data = {
+            "query": query,
+            "suggestions": suggestions,
+            "total": len(suggestions)
+        }
+        
+        return Response(response_data)
     except Exception as e:
-        logger.error(f"Unexpected error in search_songs view: {e}")
+        logger.error(f"Unexpected error in get_suggestions view: {e}")
         return Response(
             {"error": f"An unexpected error occurred: {str(e)}"}, 
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
@@ -115,50 +74,41 @@ def search_songs(request):
 @api_view(['GET'])
 def get_lyrics(request):
     """
-    API endpoint to fetch lyrics for a song.
+    API endpoint to fetch lyrics for a song using lyrics.ovh.
     
     Query Parameters:
-        track_name (str): Required. The name of the track to search for
-        artist_name (str): Optional. The artist name to filter results
+        artist (str): Required. The artist name
+        song (str): Required. The song title
         
     Returns:
         JsonResponse: Lyrics data or error message
     """
-    track_name = request.GET.get('track_name')
-    artist_name = request.GET.get('artist_name')
+    artist = request.GET.get('artist')
+    song = request.GET.get('song')
     
-    if not track_name:
+    # Validate required parameters
+    if not artist:
         return Response(
-            {"error": "track_name parameter is required"}, 
+            {"error": "artist parameter is required"}, 
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    if not song:
+        return Response(
+            {"error": "song parameter is required"}, 
             status=status.HTTP_400_BAD_REQUEST
         )
     
     try:
-        # Use the global service instance instead of creating a new one
-        result = musixmatch_service.get_lyrics(track_name, artist_name)
+        # Get lyrics from the service
+        result = lyrics_ovh_service.get_lyrics(artist, song)
         
         # Check if there was an error
         if "error" in result:
             return Response(result, status=status.HTTP_404_NOT_FOUND)
         
-        # Extract the lyrics data from the response
-        try:
-            lyrics_body = result.get("message", {}).get("body", {}).get("lyrics", {}).get("lyrics_body", "")
-            lyrics_copyright = result.get("message", {}).get("body", {}).get("lyrics", {}).get("lyrics_copyright", "")
-            
-            response_data = {
-                "lyrics": lyrics_body,
-                "copyright": lyrics_copyright
-            }
-            
-            return Response(response_data)
-        except (KeyError, TypeError) as e:
-            logger.error(f"Error parsing lyrics response: {e}")
-            return Response(
-                {"error": "Could not parse lyrics from the API response"}, 
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
-            
+        # Return the lyrics
+        return Response(result)
     except Exception as e:
         logger.error(f"Unexpected error in get_lyrics view: {e}")
         return Response(
