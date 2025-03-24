@@ -18,6 +18,11 @@ The project is structured with a Django backend API that handles the song analys
 - RESTful API: Well-structured backend API for song analysis
 - Containerized Architecture: Easy deployment with Docker
 - Development Tools: Comprehensive Makefile commands for development workflow
+- Search for songs by title and artist name
+- View full lyrics for found songs
+- Generate AI-powered analysis of song lyrics
+- Extract themes, topics, and countries mentioned
+- Cache analysis results for improved performance
 
 
 ## Technologies
@@ -60,3 +65,53 @@ make stop # Stops all running containers
 
 make clean # Stops containers and removes associated volumes
 ```
+
+## Setup & Installation
+
+### Prerequisites
+
+- Docker and Docker Compose
+- Git
+
+### Running with Docker (Recommended)
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/yourusername/lyriclens.git
+   cd lyriclens
+   ```
+
+2. Create a `.env` file from the sample:
+   ```bash
+   cp sample.env .env
+   ```
+
+3. Update the `.env` file with your API keys:
+   ```
+   DEEPSEEK_API_KEY=your_deepseek_api_key
+   ```
+
+4. Build and run the application with Docker Compose:
+   ```bash
+   make build
+   ```
+
+### Development Setup
+
+To run the backend and frontend separately for development:
+
+1. Start the backend with Redis:
+   ```bash
+   make run-backend
+   ```
+
+2. Start the frontend:
+   ```bash
+   make run-frontend
+   ```
+
+## API Endpoints
+
+- `GET /api/song/search?query={search_term}` - Search for songs
+- `GET /api/song/lyrics?artist_name={artist}&track_name={title}` - Get lyrics for a song
+- `POST /api/song/analyze` - Analyze lyrics (with caching)

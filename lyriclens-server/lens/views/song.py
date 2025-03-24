@@ -120,12 +120,12 @@ def analyze_lyrics(request):
     """
     API endpoint to analyze lyrics for a song.
     
-    This endpoint uses DeepSeek to analyze the lyrics from MusixMatch and provides:
+    This endpoint uses DeepSeek to analyze the lyrics and provides:
     1. A concise summary of what the song is about
     2. A list of countries mentioned in the lyrics (if any)
     
-    Note: The analysis is based on partial lyrics provided by MusixMatch due to
-    copyright restrictions.
+    The results are cached using Redis to improve performance
+    and reduce API calls. Cache expires after 24 hours.
     
     Query Parameters:
         track_name (str): Required. The name of the track to search for

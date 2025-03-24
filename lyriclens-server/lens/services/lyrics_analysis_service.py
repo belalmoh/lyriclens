@@ -5,7 +5,16 @@ With fallback capabilities for when APIs are unavailable or quota is exceeded.
 import os
 import logging
 import requests
+import json
 from dotenv import load_dotenv
+
+# Import cache utilities
+from lens.utils.cache_utils import (
+    test_redis_connection,
+    generate_cache_key,
+    get_from_cache,
+    save_to_cache
+)
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -28,6 +37,10 @@ class LyricsAnalysisService:
     def __init__(self):
         self.deepseek_api_key = os.getenv("DEEPSEEK_API_KEY")
         self.deepseek_api_url = os.getenv("DEEPSEEK_API_URL", "https://api.deepseek.com/v1/chat/completions")
+        
+        self.cache_enabled = True  # Flag to enable/disable caching
+        self.cache_timeout = 60 * 60 * 24  # 24 hours in seconds
+        self.cache_prefix = "lyrics_analysis"
             
         if not self.deepseek_api_key:
             logger.warning("DEEPSEEK_API_KEY not found in environment variables, using fallback")
@@ -35,13 +48,22 @@ class LyricsAnalysisService:
         # Initialize MusixMatch service for lyrics retrieval
         logger.info("Lyrics analysis service initialized")
         
+        # Test Redis connection
+        try:
+            self.cache_enabled = test_redis_connection()
+        except Exception as e:
+            logger.error(f"Redis connection failed, caching disabled: {e}")
+            self.cache_enabled = False
+    
     def analyze_lyrics(self, track_name, artist_name, lyrics):
         """
         Analyze lyrics for a specific track and artist.
         
         Steps:
-        1. Pass lyrics to AI model for analysis (or use fallback)
-        2. Return summary and extracted information
+        1. Check cache for existing analysis
+        2. If not in cache, pass lyrics to AI model for analysis
+        3. Cache the results
+        4. Return summary and extracted information
         
         Args:
             track_name (str): The name of the track
@@ -51,12 +73,24 @@ class LyricsAnalysisService:
         Returns:
             dict: Analysis results including summary and mentioned countries
         """
+        # Generate cache key for this request
+        cache_key = generate_cache_key(self.cache_prefix, track_name, artist_name)
         
-        # Extract lyrics from the response
-            
-            
+        # Try to get from cache
+        cached_analysis = get_from_cache(cache_key, self.cache_enabled)
+        if cached_analysis:
+            return cached_analysis
+        
+        # If not in cache, analyze the lyrics
         try:
-            return self._analyze_with_deepseek(track_name, artist_name, lyrics)
+            # Get the analysis from DeepSeek
+            analysis_result = self._analyze_with_deepseek(track_name, artist_name, lyrics)
+            
+            # Store the result in cache
+            save_to_cache(cache_key, analysis_result, self.cache_timeout, self.cache_enabled)
+            
+            # Return the analysis
+            return analysis_result
                
         except Exception as e:
             logger.error(f"Error analyzing lyrics: {e}")
